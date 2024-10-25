@@ -19,6 +19,32 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s:%(message)s'
 )
+class LoadingOverlay:
+    def __init__(self, master, message="Processing..."):
+        self.master = master
+        self.message = message
+        self.overlay = None
+
+    def show(self):
+        self.overlay = tk.Toplevel(self.master)
+        self.overlay.transient(self.master)
+        self.overlay.grab_set()
+        self.overlay.geometry(f"{self.master.winfo_width()}x{self.master.winfo_height()}+{self.master.winfo_rootx()}+{self.master.winfo_rooty()}")
+        self.overlay.overrideredirect(True)
+        self.overlay.config(bg='gray')
+        self.overlay.attributes('-alpha', 0.5)
+
+        label = ttk.Label(self.overlay, text=self.message, font=("Helvetica", 16, "bold"), background='gray')
+        label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        self.master.update_idletasks()
+
+    def hide(self):
+        if self.overlay:
+            self.overlay.destroy()
+            self.overlay = None
+
+
 
 class EnhancedKnuckleRecognitionApp:
     def __init__(self, master):
@@ -313,7 +339,7 @@ class EnhancedKnuckleRecognitionApp:
             self.process_uploaded_image()
 
         except Exception as e:
-            logging.error(f"Error uploading image: {e}")
+            logging.exception(f"Error uploading image: {e}")
             messagebox.showerror("Error", f"Failed to upload image: {str(e)}")
 
 
@@ -339,7 +365,7 @@ class EnhancedKnuckleRecognitionApp:
                 messagebox.showerror("Error", "Samples failed quality verification")
 
         except Exception as e:
-            logging.error(f"Critical error during enrollment: {e}")
+            logging.exception(f"Critical error during enrollment: {e}")
             messagebox.showerror("Error", f"Enrollment failed: {str(e)}")
 
     def verify_capture_readiness(self):
@@ -414,7 +440,7 @@ class EnhancedKnuckleRecognitionApp:
                         time.sleep(0.5)  # Delay between captures
 
             except Exception as e:
-                logging.error(f"Error during sample collection: {e}")
+                logging.exception(f"Error during sample collection: {e}")
                 continue
 
         if len(samples) < 2:
@@ -452,7 +478,7 @@ class EnhancedKnuckleRecognitionApp:
             return True
 
         except Exception as e:
-            logging.error(f"Error in sample verification: {e}")
+            logging.exception(f"Error in sample verification: {e}")
             return False
 
     def save_samples(self, user_id, samples):
@@ -478,7 +504,7 @@ class EnhancedKnuckleRecognitionApp:
                 raise Exception("No samples were successfully saved")
 
         except Exception as e:
-            logging.error(f"Error saving samples: {e}")
+            logging.exception(f"Error saving samples: {e}")
             messagebox.showerror("Error", f"Failed to save samples: {str(e)}")
     
     def get_enhanced_descriptors(self, image):
@@ -515,7 +541,7 @@ class EnhancedKnuckleRecognitionApp:
             return descriptors
             
         except Exception as e:
-            logging.error(f"Error in feature extraction: {e}")
+            logging.exception(f"Error in feature extraction: {e}")
             return None
 
     def extract_knuckle_regions(self, image, hand_landmarks):
@@ -587,7 +613,7 @@ class EnhancedKnuckleRecognitionApp:
                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
                 except Exception as e:
-                    logging.error(f"Error processing {knuckle_name}: {e}")
+                    logging.exception(f"Error processing {knuckle_name}: {e}")
                     continue
 
             if not knuckle_regions:
@@ -597,7 +623,7 @@ class EnhancedKnuckleRecognitionApp:
             return knuckle_regions, knuckle_coords
 
         except Exception as e:
-            logging.error(f"Error in knuckle extraction: {e}")
+            logging.exception(f"Error in knuckle extraction: {e}")
             return None, None
 
     def align_knuckle_image(self, image, x1, y1, x2, y2):
@@ -636,7 +662,7 @@ class EnhancedKnuckleRecognitionApp:
             return rotated
 
         except Exception as e:
-            logging.error(f"Error in knuckle alignment: {e}")
+            logging.exception(f"Error in knuckle alignment: {e}")
             return image  # Return original image if alignment fails
 
     def process_uploaded_image(self):
@@ -678,7 +704,7 @@ class EnhancedKnuckleRecognitionApp:
             self.status_var.set("Image processed successfully. Ready for enrollment.")
 
         except Exception as e:
-            logging.error(f"Error processing image: {e}")
+            logging.exception(f"Error processing image: {e}")
             messagebox.showerror("Error", f"Failed to process image: {str(e)}")
             self.enroll_image_button.config(state=tk.DISABLED)
             self.match_button.config(state=tk.DISABLED)
@@ -730,7 +756,7 @@ class EnhancedKnuckleRecognitionApp:
                     self.knuckle_panels[name].image = knuckle_tk
 
         except Exception as e:
-            logging.error(f"Error displaying processed image: {e}")
+            logging.exception(f"Error displaying processed image: {e}")
             messagebox.showerror("Error", f"Failed to display processed image: {str(e)}")
 
     def enhance_knuckle_display(self, region):
@@ -762,7 +788,7 @@ class EnhancedKnuckleRecognitionApp:
             return result
             
         except Exception as e:
-            logging.error(f"Error enhancing knuckle display: {e}")
+            logging.exception(f"Error enhancing knuckle display: {e}")
             return cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
 
     def extract_enhanced_features(self, image):
@@ -795,19 +821,20 @@ class EnhancedKnuckleRecognitionApp:
             return features_dict
             
         except Exception as e:
-            logging.error(f"Error extracting enhanced features: {e}")
+            logging.exception(f"Error extracting enhanced features: {e}")
             return None
 
 
 
 
     def verify_image_quality(self, regions):
-        """Verify image quality with adjusted thresholds"""
+        """Verify image quality with adjusted thresholds and feedback"""
         try:
             for name, region in regions.items():
                 if region is None or region.size == 0:
                     logging.warning(f"Invalid region for {name}")
-                    continue  # Try other regions instead of returning False immediately
+                    messagebox.showwarning("Image Quality Issue", f"Invalid region detected for {name}. Please adjust your hand position.")
+                    return False
 
                 # Convert to grayscale if needed
                 if len(region.shape) == 3:
@@ -818,30 +845,32 @@ class EnhancedKnuckleRecognitionApp:
                 # Calculate quality metrics
                 min_val, max_val, _, _ = cv2.minMaxLoc(gray)
                 contrast = max_val - min_val
-                if contrast < 20:  # Reduced from 30
+                if contrast < 20:
                     logging.warning(f"Low contrast in {name}: {contrast}")
-                    continue
+                    messagebox.showwarning("Image Quality Issue", f"Low contrast detected in {name}. Please improve lighting.")
+                    return False
 
                 # Check brightness
                 mean_val = np.mean(gray)
-                if mean_val < 15 or mean_val > 240:  # Adjusted range
+                if mean_val < 15 or mean_val > 240:
                     logging.warning(f"Poor brightness in {name}: {mean_val}")
-                    continue
+                    messagebox.showwarning("Image Quality Issue", f"Poor brightness detected in {name}. Please adjust lighting.")
+                    return False
 
                 # Check blur level
                 laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-                if laplacian_var < 30:  # Reduced from 50
+                if laplacian_var < 30:
                     logging.warning(f"Blurry image detected in {name}: {laplacian_var}")
-                    continue
+                    messagebox.showwarning("Image Quality Issue", f"Blurry image detected in {name}. Please keep your hand steady.")
+                    return False
 
-                # If we found at least one good quality region, return True
-                return True
-
-            return False
+            return True
 
         except Exception as e:
-            logging.error(f"Error in image quality verification: {e}")
+            logging.exception(f"Error in image quality verification: {e}", exc_info=True)
+            messagebox.showerror("Error", f"Image quality verification failed: {str(e)}")
             return False
+
 
     def enhance_image_quality(self, image):
         """Enhance image quality before processing"""
@@ -874,7 +903,7 @@ class EnhancedKnuckleRecognitionApp:
             return normalized
 
         except Exception as e:
-            logging.error(f"Error enhancing image quality: {e}")
+            logging.exception(f"Error enhancing image quality: {e}")
             return image
 
     def preprocess_for_quality_check(self, image):
@@ -890,7 +919,7 @@ class EnhancedKnuckleRecognitionApp:
             return processed
 
         except Exception as e:
-            logging.error(f"Error in preprocessing: {e}")
+            logging.exception(f"Error in preprocessing: {e}")
             return image
 
     def estimate_noise_level(self, image):
@@ -912,7 +941,7 @@ class EnhancedKnuckleRecognitionApp:
             return noise_level
 
         except Exception as e:
-            logging.error(f"Error estimating noise level: {e}")
+            logging.exception(f"Error estimating noise level: {e}")
             return 100  # Return high noise level on error
     def calculate_local_contrast(self, image, window_size=15):
         """Calculate local contrast using sliding window"""
@@ -931,7 +960,7 @@ class EnhancedKnuckleRecognitionApp:
             return np.mean(contrast_map)
 
         except Exception as e:
-            logging.error(f"Error calculating local contrast: {e}")
+            logging.exception(f"Error calculating local contrast: {e}")
             return 0
     
 
@@ -1052,7 +1081,7 @@ class EnhancedKnuckleRecognitionApp:
             return normalized
 
         except Exception as e:
-            logging.error(f"Error in preprocessing: {e}")
+            logging.exception(f"Error in preprocessing: {e}")
             return image
 
     def match_descriptors(self, current_desc_dict, stored_desc_dict):
@@ -1098,7 +1127,7 @@ class EnhancedKnuckleRecognitionApp:
                 logging.warning(f"Unknown feature type: {feature_type}")
                 return 0
         except Exception as e:
-            logging.error(f"Error matching descriptors: {e}")
+            logging.exception(f"Error matching descriptors: {e}")
             return 0
         
 
@@ -1107,7 +1136,7 @@ class EnhancedKnuckleRecognitionApp:
         try:
             for feature_type, descriptors in descriptors_dict.items():
                 if descriptors is None or len(descriptors) == 0:
-                    logging.error(f"Empty descriptors for {knuckle_name} with feature type {feature_type}")
+                    logging.exception(f"Empty descriptors for {knuckle_name} with feature type {feature_type}")
                     continue
 
                 # Calculate quality score for each feature type
@@ -1130,7 +1159,7 @@ class EnhancedKnuckleRecognitionApp:
             # Do not commit here; let the caller handle it
             return True
         except Exception as e:
-            logging.error(f"Error saving descriptors to database: {e}")
+            logging.exception(f"Error saving descriptors to database: {e}")
             # Re-raise the exception to be handled by the caller
             raise e
 
@@ -1208,7 +1237,7 @@ class EnhancedKnuckleRecognitionApp:
             self.status_var.set(f"Loaded {num_users} user profiles")
             
         except Exception as e:
-            logging.error(f"Error loading descriptors: {e}")
+            logging.exception(f"Error loading descriptors: {e}")
             messagebox.showerror("Error", f"Failed to load descriptors: {str(e)}")
             self.descriptors_db = {}
   # Initialize empty if loading fails
@@ -1248,7 +1277,7 @@ class EnhancedKnuckleRecognitionApp:
                         f"3. The URL is correct")
             messagebox.showerror("Error", error_msg)
             self.cap = None
-            logging.error(f"Camera connection error: {e}")
+            logging.exception(f"Camera connection error: {e}")
             return
             
         # Start capture
@@ -1322,7 +1351,7 @@ class EnhancedKnuckleRecognitionApp:
                 self.update_video_display(frame)
 
             except Exception as e:
-                logging.error(f"Frame update error: {e}")
+                logging.exception(f"Frame update error: {e}")
                 self.status_var.set(f"Camera error: {str(e)}")
                 self.stop_webcam()
                 break
@@ -1381,6 +1410,44 @@ class EnhancedKnuckleRecognitionApp:
             self.knuckle_panels[name].config(image=knuckle_tk)
             self.knuckle_panels[name].image = knuckle_tk
 
+    def match_knuckle_thread(self, loading):
+        # The match_knuckle_thread method should be indented here
+        try:
+            match_data = self.perform_matching()
+            if not match_data:
+                self.handle_no_match()
+            else:
+                match_results, total_possible_matches = match_data
+                self.process_match_results(match_results, total_possible_matches)
+        except Exception as e:
+            self.handle_matching_error(e)
+        finally:
+            # Hide loading overlay and re-enable the match button
+            loading.hide()
+            self.match_button.config(state=tk.NORMAL)
+            self.master.update()
+
+    def match_knuckle(self):
+        """Enhanced matching with loading indicator and improved error handling"""
+        try:
+            if not self.verify_matching_readiness():
+                return
+
+            # Show loading overlay
+            loading = LoadingOverlay(self.master, message="Matching in progress...")
+            loading.show()
+            self.master.update()
+
+            # Disable the match button to prevent multiple clicks
+            self.match_button.config(state=tk.DISABLED)
+
+            # Perform matching in a separate thread
+            threading.Thread(target=self.match_knuckle_thread, args=(loading,), daemon=True).start()
+
+        except Exception as e:
+            self.handle_matching_error(e)
+
+
     def clear_knuckle_displays(self):
         """Clear all knuckle displays"""
         for panel in self.knuckle_panels.values():
@@ -1430,31 +1497,18 @@ class EnhancedKnuckleRecognitionApp:
             logging.info("Database initialized successfully")
             
         except Exception as e:
-            logging.error(f"Database initialization error: {e}")
+            logging.exception(f"Database initialization error: {e}")
             raise
+    
+
 
     def handle_enrollment_error(self, error):
         """Handle enrollment errors"""
-        logging.error(f"Enrollment error: {error}")
+        logging.exception(f"Enrollment error: {error}")
         messagebox.showerror("Error", f"Enrollment failed: {str(error)}")
         self.status_var.set("Enrollment failed")
 
-    def match_knuckle(self):
-        """Enhanced matching with multiple verification steps"""
-        try:
-            if not self.verify_matching_readiness():
-                return
 
-            match_data = self.perform_matching()
-            if not match_data:
-                self.handle_no_match()
-                return
-
-            match_results, total_possible_matches = match_data
-            self.process_match_results(match_results, total_possible_matches)
-
-        except Exception as e:
-            self.handle_matching_error(e)
 
     def verify_matching_readiness(self):
         """Verify system is ready for matching"""
@@ -1576,7 +1630,7 @@ class EnhancedKnuckleRecognitionApp:
             logging.info(f"Verified match: {report}")
 
         except Exception as e:
-            logging.error(f"Error confirming match: {e}")
+            logging.exception(f"Error confirming match: {e}")
 
     def handle_no_match(self):
         """Handle no match result"""
@@ -1584,12 +1638,14 @@ class EnhancedKnuckleRecognitionApp:
         self.last_matched_user = None
         self.result_label.config(text="No matching user found", foreground='red')
         self.status_var.set("No match found")
+        self.progress_bar['value'] = 0  # Reset progress bar
 
     def handle_matching_error(self, error):
         """Handle matching errors"""
-        logging.error(f"Matching error: {error}")
+        logging.exception(f"Matching error: {error}", exc_info=True)
         messagebox.showerror("Error", f"Matching failed: {str(error)}")
         self.status_var.set("Matching failed")
+        self.progress_bar['value'] = 0  # Reset progress bar
 
     def generate_match_report(self, user_id, confidence, match_data):
         """Generate detailed match report"""
@@ -1618,7 +1674,7 @@ class EnhancedKnuckleRecognitionApp:
             ''', (user_id,))
             self.conn.commit()
         except Exception as e:
-            logging.error(f"Error updating match statistics: {e}")
+            logging.exception(f"Error updating match statistics: {e}")
             raise e
 
     def init_database(self):
@@ -1686,7 +1742,7 @@ class EnhancedKnuckleRecognitionApp:
             logging.info("Database initialized successfully")
             
         except Exception as e:
-            logging.error(f"Database initialization error: {e}")
+            logging.exception(f"Database initialization error: {e}")
             messagebox.showerror("Error", f"Failed to initialize database: {str(e)}")
             raise
 
@@ -1719,7 +1775,7 @@ class EnhancedKnuckleRecognitionApp:
             
         except Exception as e:
             self.cursor.execute('ROLLBACK')
-            logging.error(f"Database cleanup error: {e}")
+            logging.exception(f"Database cleanup error: {e}")
     def backup_database(self):
         """Create backup of the database"""
         try:
@@ -1743,7 +1799,7 @@ class EnhancedKnuckleRecognitionApp:
             self.cleanup_old_backups(backup_dir)
             
         except Exception as e:
-            logging.error(f"Database backup error: {e}")
+            logging.exception(f"Database backup error: {e}")
             raise
 
     def cleanup_old_backups(self, backup_dir, keep_days=30):
@@ -1756,7 +1812,7 @@ class EnhancedKnuckleRecognitionApp:
                     os.remove(backup_path)
                     logging.info(f"Removed old backup: {backup_file}")
         except Exception as e:
-            logging.error(f"Backup cleanup error: {e}")
+            logging.exception(f"Backup cleanup error: {e}")
 
     def log_audit(self, action, user_id=None, details=None):
         """Log audit information"""
@@ -1767,7 +1823,7 @@ class EnhancedKnuckleRecognitionApp:
             ''', (action, user_id, details))
             self.conn.commit()
         except Exception as e:
-            logging.error(f"Audit logging error: {e}")
+            logging.exception(f"Audit logging error: {e}")
 
     def export_user_data(self, user_id):
         """Export user data in a portable format"""
@@ -1807,7 +1863,7 @@ class EnhancedKnuckleRecognitionApp:
             return None
             
         except Exception as e:
-            logging.error(f"Data export error: {e}")
+            logging.exception(f"Data export error: {e}")
             raise
 
     def import_user_data(self, export_data):
@@ -1852,7 +1908,7 @@ class EnhancedKnuckleRecognitionApp:
             
         except Exception as e:
             self.cursor.execute('ROLLBACK')
-            logging.error(f"Data import error: {e}")
+            logging.exception(f"Data import error: {e}")
             raise
 
     def get_system_statistics(self):
@@ -1891,7 +1947,7 @@ class EnhancedKnuckleRecognitionApp:
             return stats
             
         except Exception as e:
-            logging.error(f"Statistics gathering error: {e}")
+            logging.exception(f"Statistics gathering error: {e}")
             return None
 
     def on_closing(self):
@@ -1915,7 +1971,7 @@ class EnhancedKnuckleRecognitionApp:
             logging.info("Application closed successfully")
             
         except Exception as e:
-            logging.error(f"Error during application shutdown: {e}")
+            logging.exception(f"Error during application shutdown: {e}")
             
         finally:
             self.master.destroy()
@@ -1937,6 +1993,7 @@ if __name__ == "__main__":
         app = EnhancedKnuckleRecognitionApp(root)
         root.protocol("WM_DELETE_WINDOW", app.on_closing)
         root.mainloop()
+        
         
     except Exception as e:
         # In case of error, try to log to file directly
